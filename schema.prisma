@@ -1,0 +1,58 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum Severity { SAFE LOW MEDIUM HIGH CRITICAL }
+enum ScanType { URL EMAIL FILE PASSWORD }
+enum ScanStatus { QUEUED RUNNING COMPLETED FAILED }
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  scans        Scan[]
+  alerts       Alert[]
+  events       SecurityEvent[]
+}
+
+model Scan {
+  id          String      @id @default(cuid())
+  userId      String
+  type        ScanType
+  target      String?
+  status      ScanStatus  @default(QUEUED)
+  score       Int?
+  severity    Severity?
+  verdict     String?
+  explanation String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model Alert {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  severity  Severity
+  read      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, read])
+}
+
+model SecurityEvent {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  severity  Severity
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
