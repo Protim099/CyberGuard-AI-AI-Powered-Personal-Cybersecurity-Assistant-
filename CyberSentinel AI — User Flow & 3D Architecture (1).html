@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CyberSentinel AI — User Flow & 3D Architecture</title>
+<style>
+:root{--bg:#f8fafc;--fg:#0f172a;--card:#fff;--bd:#cbd5e1;--mut:#475569;--acc:#4f46e5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1220;--fg:#e2e8f0;--card:#111b2e;--bd:#26344d;--mut:#94a3b8;--acc:#818cf8}}
+:root[data-theme="dark"]{--bg:#0b1220;--fg:#e2e8f0;--card:#111b2e;--bd:#26344d;--mut:#94a3b8;--acc:#818cf8}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:10px;font-size:15px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.hide{display:none}
+.flow{display:flex;flex-direction:column;align-items:stretch;gap:0}
+.step{background:var(--card);border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:10px;padding:10px 14px}
+.step b{display:block}.step span{color:var(--mut);font-size:13px}
+.arrow{text-align:center;color:var(--mut);line-height:1.6}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.tag{font-size:11px;border:1px solid var(--bd);border-radius:99px;padding:1px 8px;margin-left:6px;color:var(--mut)}
+#wrap{position:relative;border:1px solid var(--bd);border-radius:12px;background:var(--card);overflow:hidden}
+canvas{display:block;width:100%;height:520px;touch-action:none;cursor:grab}
+#info{padding:12px 14px;border-top:1px solid var(--bd);min-height:64px}
+#info b{color:var(--acc)}
+.hint{position:absolute;top:8px;left:12px;font-size:12px;color:var(--mut)}
+</style></head>
+<body><main>
+<h1>🛡️ CyberSentinel AI</h1>
+<p class="sub">User flow and 3D system architecture. Tap a tab to switch.</p>
+<div class="tabs"><button id="t1" class="on">User Flow</button><button id="t2">3D Architecture</button><button id="t3">Access Flow</button></div>
+
+<section id="v1"><div class="flow" id="flow"></div></section>
+
+<section id="v3" class="hide"><div class="flow" id="acc"></div></section>
+
+<section id="v2" class="hide">
+ <div id="wrap"><div class="hint">Drag to rotate · scroll/pinch to zoom · click a block</div><canvas id="c"></canvas>
+ <div id="info"><b>Select a layer</b><br><span style="color:var(--mut)">Click any block to see its role, tech and files in the project.</span></div></div>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- User flow ----------
+const F=[
+ ["#6366f1","1. Register / Login","POST /api/auth/register · /login → bcrypt check → JWT (60 min). Admin email gets the admin role."],
+ ["#0ea5e9","2. Dashboard","Total scans, average score, severity pie chart (Recharts), scan history."],
+ "ROW:3. Choose input",
+ ["#14b8a6","3b. Upload file","Allow-list .py/.js/.ts, 1 MB max, UTF-8 only."],
+ ["#14b8a6","3a. Paste code","Monaco editor, language by file name."],
+ ["#94a3b8","3c. GitHub repo","Planned: fetch repo files via GitHub API, then scan each file."],
+ ["#f59e0b","4. Validate & store","Pydantic validation, Scan row saved, audit log written. Code is never executed."],
+ ["#ef4444","5. Hybrid analysis","AST checks + regex security rules + ML confidence → findings + Security Score 0–100."],
+ ["#8b5cf6","6. Results view","Red line highlights in Monaco; per finding: type, severity, confidence, CWE/OWASP, impact, secure fix."],
+ "ROW:7. Next actions",
+ ["#22c55e","Download PDF report","GET /api/scans/{id}/report.pdf (ReportLab)."],
+ ["#22c55e","Re-open history","Open any past scan and its highlights."],
+ ["#64748b","Admin: audit logs","GET /api/admin/audit-logs (admin role only)."],
+ ["#64748b","CI/CD scan","GitHub Actions runs tests and fails the build on Critical/High findings."]
+];
+const flow=document.getElementById("flow");let row=null,html="",first=true;
+function card(s){return `<div class="step" style="--c:${s[0]}"><b>${s[1]}${s[0]=="#94a3b8"?'<span class="tag">planned</span>':''}</b><span>${s[2]}</span></div>`}
+let i=0;
+while(i<F.length){
+ const s=F[i];
+ if(typeof s==="string"){
+  const n=s.startsWith("ROW:3")?3:4;
+  if(i>0)html+='<div class="arrow">↓</div>';
+  html+=`<div class="arrow"><b>${s.slice(4)}</b></div><div class="row">`+F.slice(i+1,i+1+n).map(card).join("")+"</div>";
+  i+=n+1;
+ } else { if(i>0)html+='<div class="arrow">↓</div>'; html+=card(s); i++; }
+}
+flow.innerHTML=html;
+
+// ---------- Tabs ----------
+const T=[1,2,3].map(n=>[document.getElementById("t"+n),document.getElementById("v"+n)]);
+function show(n){T.forEach(([b,v],i)=>{b.className=i==n?"on":"";v.className=i==n?"":"hide"});if(n==1)resize()}
+T.forEach(([b],i)=>b.onclick=()=>show(i));
+// ---------- Access flow ----------
+const A=[
+ ["#6366f1","1. Open the app","Local: run docker compose up, then open http://localhost:5173 (API docs: http://localhost:8000/docs). Production: open your domain, served over HTTPS behind a reverse proxy."],
+ ["#0ea5e9","2. Login screen","React app loads. No token in the browser yet, so only Login / Register is shown."],
+ {t:"3. Authenticate",r:[["#22c55e","New user: Register","POST /api/auth/register. Password 8+ chars, bcrypt hash stored, role = user (admin only if email matches ADMIN_EMAIL)."],["#22c55e","Existing user: Login","POST /api/auth/login. Password checked against the bcrypt hash."]]},
+ {t:"Result",r:[["#ef4444","Wrong credentials","401 error shown, audit log 'login_failed' written."],["#22c55e","Success","Server returns a signed JWT (60 min). Browser keeps it in sessionStorage."]]},
+ ["#f59e0b","4. Every API call","Frontend sends Authorization: Bearer <JWT>. FastAPI decodes it, loads the user from PostgreSQL, then runs the endpoint."],
+ {t:"5. Token problem?",r:[["#ef4444","Expired or invalid token","API returns 401, frontend clears the token and returns to the login screen."],["#22c55e","Token valid","Request continues to the role check."]]},
+ {t:"6. Role-based access",r:[["#8b5cf6","Normal user","Scan code, upload files, dashboard and history for own scans, PDF report. Other users' scans return 404."],["#64748b","Admin","Everything a user can do, plus read any scan and view /api/admin/audit-logs. Normal users get 403 there."]]},
+ ["#94a3b8","7. Logout","Token removed from the browser. Session ends; the token also expires on its own after 60 minutes."]
+];
+(function(){let h="";A.forEach((s,i)=>{if(i)h+='<div class="arrow">↓</div>';
+ h+=Array.isArray(s)?card(s):`<div class="arrow"><b>${s.t}</b></div><div class="row">${s.r.map(card).join("")}</div>`});
+ document.getElementById("acc").innerHTML=h})();
+
+// ---------- 3D architecture ----------
+const N={
+ fe:{p:[0,4.4,0],c:0x6366f1,t:"React Frontend",d:"Vite + TypeScript + Tailwind, Monaco editor with vulnerability line highlighting, Recharts dashboard. Files: frontend/src/App.tsx"},
+ gh:{p:[4.8,4.4,0],c:0x94a3b8,t:"GitHub (planned)",d:"Repository scanning through the GitHub API. Not built yet; same analyzer will be reused per file."},
+ api:{p:[0,2.9,0],c:0x0ea5e9,t:"FastAPI REST API",d:"Routes: /auth, /scans, /scans/upload, /dashboard, report.pdf, /admin/audit-logs. Pydantic validation, CORS allow-list. Files: backend/app/main.py"},
+ auth:{p:[-2.4,1.4,0],c:0xf59e0b,t:"Auth (JWT + bcrypt)",d:"HS256 JWT with a required 32+ char secret from the environment, bcrypt password hashes, user/admin roles. Files: backend/app/security.py"},
+ db:{p:[2.4,1.4,0],c:0x3b82f6,t:"PostgreSQL",d:"Tables: users, scans, vulnerabilities, audit_logs (indexed, foreign keys with cascade). SQLAlchemy 2.0 models. Files: backend/app/models.py"},
+ eng:{p:[0,0,0],c:0xef4444,t:"Analysis Engine",d:"Parses code as text only (never executes it). Merges and de-duplicates findings from both branches. Files: analyzer/engine.py"},
+ ast:{p:[-2.4,-1.5,0],c:0x14b8a6,t:"AST + Security Rules",d:"Python ast module plus regex rules for 11 vulnerability classes with CWE and OWASP mapping."},
+ ml:{p:[2.4,-1.5,0],c:0x8b5cf6,t:"AI / ML",d:"scikit-learn TF-IDF + Logistic Regression scores how vulnerable each line looks and adjusts confidence. Files: ai/classifier.py"},
+ sc:{p:[0,-3,0],c:0xf97316,t:"Risk Score 0–100",d:"100 minus severity weight (Critical 25, High 15, Medium 8, Low 3) times confidence."},
+ out:{p:[0,-4.5,0],c:0x22c55e,t:"Dashboard + PDF Report",d:"Results, charts, history in the UI and ReportLab PDF download."}
+};
+const E=[["fe","api"],["gh","api"],["api","auth"],["api","db"],["api","eng"],["eng","ast"],["eng","ml"],["ast","sc"],["ml","sc"],["sc","out"],["db","eng"]];
+const cv=document.getElementById("c");
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,.1,100);cam.position.set(0,0,17);
+S.add(new THREE.AmbientLight(0xffffff,.7));const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(5,8,10);S.add(dl);
+const G=new THREE.Group();S.add(G);const meshes=[];
+function label(txt){const k=document.createElement("canvas");k.width=512;k.height=96;const x=k.getContext("2d");
+ x.fillStyle="rgba(15,23,42,.85)";x.beginPath();x.roundRect?x.roundRect(4,8,504,80,20):x.rect(4,8,504,80);x.fill();
+ x.fillStyle="#fff";x.font="bold 36px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(txt,256,50);
+ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k),transparent:true,depthTest:false}));sp.scale.set(3.2,.6,1);return sp}
+for(const k in N){const n=N[k];
+ const m=new THREE.Mesh(new THREE.BoxGeometry(2.8,.8,1.6),new THREE.MeshLambertMaterial({color:n.c,transparent:n.t.includes("planned"),opacity:n.t.includes("planned")?.55:1}));
+ m.position.set(...n.p);m.userData.k=k;G.add(m);meshes.push(m);
+ const l=label(n.t);l.position.set(n.p[0],n.p[1]+.75,.9);G.add(l)}
+const packets=[];
+E.forEach(([a,b])=>{const A=new THREE.Vector3(...N[a].p),B=new THREE.Vector3(...N[b].p);
+ G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([A,B]),new THREE.LineBasicMaterial({color:0x94a3b8})));
+ const p=new THREE.Mesh(new THREE.SphereGeometry(.09),new THREE.MeshBasicMaterial({color:0xfacc15}));G.add(p);packets.push({p,A,B,o:Math.random()})});
+let ry=.5,rx=.25,zoom=17,drag=false,moved=0,lx=0,ly=0,auto=true;
+cv.addEventListener("pointerdown",e=>{drag=true;moved=0;lx=e.clientX;ly=e.clientY;auto=false;cv.setPointerCapture(e.pointerId);cv.style.cursor="grabbing"});
+cv.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;moved+=Math.abs(dx)+Math.abs(dy);ry+=dx*.008;rx=Math.max(-1,Math.min(1,rx+dy*.006));lx=e.clientX;ly=e.clientY});
+cv.addEventListener("pointerup",e=>{drag=false;cv.style.cursor="grab";if(moved<6)pick(e)});
+cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(8,Math.min(28,zoom+e.deltaY*.01))},{passive:false});
+const ray=new THREE.Raycaster(),mv=new THREE.Vector2();let sel=null;
+function pick(e){const r=cv.getBoundingClientRect();mv.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+ ray.setFromCamera(mv,cam);const h=ray.intersectObjects(meshes)[0];
+ meshes.forEach(m=>m.scale.set(1,1,1));
+ if(h){h.object.scale.set(1.08,1.3,1.2);const n=N[h.object.userData.k];
+  document.getElementById("info").innerHTML=`<b>${n.t}</b><br>${n.d}`}}
+function resize(){const w=cv.clientWidth||600,h=cv.clientHeight||520;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+addEventListener("resize",resize);resize();R.setPixelRatio(Math.min(devicePixelRatio,2));
+(function loop(t){requestAnimationFrame(loop);if(T[1][1].className==="hide")return;
+ if(auto)ry+=.003;G.rotation.y=ry;G.rotation.x=rx;cam.position.z=zoom;
+ packets.forEach(k=>{k.o=(k.o+.006)%1;k.p.position.lerpVectors(k.A,k.B,k.o)});R.render(S,cam)})(0);
+</script>
+</body></html>
